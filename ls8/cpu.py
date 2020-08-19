@@ -10,6 +10,13 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.pc = 0
+        self.reg = [0] * 8
+        self.running = 0
+        self.branchtable = {}
+        self.branchtable[0b10000010] = self.handle_LDI
+        self.branchtable[0b01000111] = self.handle_PRN
+        self.branchtable[0b00000001] = self.handle_HLT
+        self.branchtable[0b10100010] = self.handle_MUL
 
     def ram_read(self, address):
         if address >= 0 and address <= 255:
@@ -23,32 +30,63 @@ class CPU:
         else:
             return "Address isn't within memory limits"
 
+    def handle_LDI(self, op_a, op_b):
+        self.reg[op_a] = op_b
+
+    def handle_PRN(self, op_a, op_b):
+        print(self.reg[op_a])
+
+    def handle_HLT(self, op_a, op_b):
+        self.running = False
+
+    def handle_MUL(self, op_a, op_b):
+        self.alu("MULT", op_a, op_b)
+
     def load(self):
         """Load a program into memory."""
 
         address = 0
 
-        # For now, we've just hardcoded a program:
+        if len(sys.argv) != 2:
+            print("Usage: ls8.py programName")
+            sys.exit(1)
 
-        program = [
-            # From print8.ls8
-            0b10000010,  # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111,  # PRN R0
-            0b00000000,
-            0b00000001,  # HLT
-        ]
+        doodlehop = sys.argv[1]
+        try:
+            with open(doodlehop) as f:
+                for line in f:
+                    line = line.strip()
+                    temp = line.split()
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+                    if len(temp) == 0:
+                        continue
+
+                    if temp[0][0] == "#":
+                        continue
+
+                    try:
+                        self.ram[address] = int(temp[0], 2)
+
+                    except ValueError:
+                        print(f"Invalid number: {temp[0]}")
+                        sys.exit(1)
+                    except IndexError:
+                        print(f"Invalid index")
+                        sys.exit(1)
+
+                    address += 1
+
+        except FileNotFoundError:
+            print(f"Could not open {doodlehop}")
+            sys.exit(1)
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
+        elif op == "MULT":
+            self.reg[reg_a] *= self.reg[reg_b]
         # elif op == "SUB": etc
         else:
             raise Exception("Unsupported ALU operation")
@@ -75,18 +113,36 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        running = True
-        IR = self.ram_read(self.pc)
-        operand_a = self.ram_read(self.pc + 1)
-        operand_b = self.ram_read(self.pc + 2)
+        self.running = True
 
-        registers = [0] * 10
+        LDI = 0b10000010
+        PRN = 0b01000111
+        HLT = 0b00000001
+        MUL = 0b10100010
 
-        while running:
+        while self.running:
 
-            if self.pc < 8:
-                print("P")
-            elif self.pc > 8:
-                running = False
+            IR = self.ram_read(self.pc)
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
+            num_of_args = (IR >> 6) + 1
 
-            self.pc += 1
+            try:
+                self.branchtable[IR](operand_a, operand_b)
+            except:
+                print(f"Invalid instruction {IR} at address{self.pc}")
+
+            # if IR == LDI:
+            #     self.reg[operand_a] = operand_b
+            # elif IR == PRN:
+            #     print(self.reg[operand_a])
+            # elif IR == MUL:
+            #     self.alu("MULT", operand_a, operand_b)
+            # elif IR == HLT:
+            #     running = False
+            # else:
+            #     print(f"Invalid instruction {IR} at address {self.pc}")
+            #     sys.exit(1)
+
+            self.pc += num_of_args
+        print("Ended Loop")
