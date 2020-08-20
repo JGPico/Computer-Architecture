@@ -11,12 +11,15 @@ class CPU:
         self.ram = [0] * 256
         self.pc = 0
         self.reg = [0] * 8
+        self.reg[7] = 0xf4  # stack pointer
         self.running = 0
         self.branchtable = {}
         self.branchtable[0b10000010] = self.handle_LDI
         self.branchtable[0b01000111] = self.handle_PRN
         self.branchtable[0b00000001] = self.handle_HLT
         self.branchtable[0b10100010] = self.handle_MUL
+        self.branchtable[0b01000101] = self.handle_PUSH
+        self.branchtable[0b01000110] = self.handle_POP
 
     def ram_read(self, address):
         if address >= 0 and address <= 255:
@@ -41,6 +44,22 @@ class CPU:
 
     def handle_MUL(self, op_a, op_b):
         self.alu("MULT", op_a, op_b)
+
+    def handle_PUSH(self, op_a, op_b):
+        self.reg[7] -= 1
+        value = self.reg[op_a]  # want to push
+
+        # store on stack
+        top_of_stack_addr = self.reg[7]
+        self.ram[top_of_stack_addr] = value
+
+        # self.pc += 2
+
+    def handle_POP(self, op_a, op_b):
+        top_of_stack_addr = self.reg[7]
+        self.reg[op_a] = self.ram[top_of_stack_addr]
+
+        self.reg[7] += 1
 
     def load(self):
         """Load a program into memory."""
@@ -115,10 +134,10 @@ class CPU:
         """Run the CPU."""
         self.running = True
 
-        LDI = 0b10000010
-        PRN = 0b01000111
-        HLT = 0b00000001
-        MUL = 0b10100010
+        # LDI = 0b10000010
+        # PRN = 0b01000111
+        # HLT = 0b00000001
+        # MUL = 0b10100010
 
         while self.running:
 
@@ -130,7 +149,8 @@ class CPU:
             try:
                 self.branchtable[IR](operand_a, operand_b)
             except:
-                print(f"Invalid instruction {IR} at address{self.pc}")
+                print(f"Invalid instruction {IR} at address {self.pc}")
+                sys.exit(1)
 
             # if IR == LDI:
             #     self.reg[operand_a] = operand_b
