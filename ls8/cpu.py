@@ -18,8 +18,11 @@ class CPU:
         self.branchtable[0b01000111] = self.handle_PRN
         self.branchtable[0b00000001] = self.handle_HLT
         self.branchtable[0b10100010] = self.handle_MUL
+        self.branchtable[0b10100000] = self.handle_ADD
         self.branchtable[0b01000101] = self.handle_PUSH
         self.branchtable[0b01000110] = self.handle_POP
+        self.branchtable[0b01010000] = self.handle_CALL
+        self.branchtable[0b00010001] = self.handle_RET
 
     def ram_read(self, address):
         if address >= 0 and address <= 255:
@@ -45,6 +48,9 @@ class CPU:
     def handle_MUL(self, op_a, op_b):
         self.alu("MULT", op_a, op_b)
 
+    def handle_ADD(self, op_a, op_b):
+        self.alu("ADD", op_a, op_b)
+
     def handle_PUSH(self, op_a, op_b):
         self.reg[7] -= 1
         value = self.reg[op_a]  # want to push
@@ -53,13 +59,28 @@ class CPU:
         top_of_stack_addr = self.reg[7]
         self.ram[top_of_stack_addr] = value
 
-        # self.pc += 2
-
     def handle_POP(self, op_a, op_b):
         top_of_stack_addr = self.reg[7]
         self.reg[op_a] = self.ram[top_of_stack_addr]
 
         self.reg[7] += 1
+
+    def handle_CALL(self, op_a, op_b):
+        # Push return address
+        ret_addr = op_b
+        self.reg[7] -= 1
+        self.ram[self.reg[7]] = ret_addr
+
+        # Call the subroutine
+        reg_num = self.ram[op_a]
+        self.pc = self.reg[reg_num]
+
+    def handle_RET(self, op_a, op_b):
+        # Pop return address off the stack
+        ret_addr = self.ram[self.reg[7]]
+        self.reg[7] += 1
+
+        self.pc = ret_addr
 
     def load(self):
         """Load a program into memory."""
@@ -164,5 +185,7 @@ class CPU:
             #     print(f"Invalid instruction {IR} at address {self.pc}")
             #     sys.exit(1)
 
-            self.pc += num_of_args
+            if IR & 0b00010000 == 0:  # If the pc was not set by the branchtable fn
+                self.pc += num_of_args
+
         print("Ended Loop")
