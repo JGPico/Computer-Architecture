@@ -67,17 +67,20 @@ class CPU:
 
     def handle_CALL(self, op_a, op_b):
         # Push return address
-        ret_addr = op_b
+        ret_addr = self.pc + 2
         self.reg[7] -= 1
-        self.ram[self.reg[7]] = ret_addr
+        addr_to_push_to = self.reg[7]
+        self.ram[addr_to_push_to] = ret_addr
 
         # Call the subroutine
-        reg_num = self.ram[op_a]
-        self.pc = self.reg[reg_num]
+        reg_num = self.ram[self.pc + 1]
+        subroutine_addr = self.reg[reg_num]
+        self.pc = subroutine_addr
 
     def handle_RET(self, op_a, op_b):
         # Pop return address off the stack
-        ret_addr = self.ram[self.reg[7]]
+        top_of_stack = self.reg[7]
+        ret_addr = self.ram[top_of_stack]
         self.reg[7] += 1
 
         self.pc = ret_addr
