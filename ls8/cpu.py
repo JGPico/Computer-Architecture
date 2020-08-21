@@ -22,6 +22,7 @@ class CPU:
         self.branchtable[0b00000001] = self.handle_HLT
         self.branchtable[0b10100010] = self.handle_MUL
         self.branchtable[0b10100000] = self.handle_ADD
+        self.branchtable[0b10101000] = self.handle_AND
         self.branchtable[0b10100111] = self.handle_CMP
         self.branchtable[0b01010100] = self.handle_JMP
         self.branchtable[0b01010101] = self.handle_JEQ
@@ -57,6 +58,9 @@ class CPU:
 
     def handle_ADD(self, op_a, op_b):
         self.alu("ADD", op_a, op_b)
+
+    def handle_AND(self, op_a, op_b):
+        self.alu("AND", op_a, op_b)
 
     def handle_CMP(self, op_a, op_b):
         self.alu("CMP", op_a, op_b)
@@ -171,6 +175,8 @@ class CPU:
                 self.equal = 0
                 self.less = 0
                 self.greater = 1
+        elif op == "AND":
+            self.reg[reg_a] = self.reg[reg_a] & self.reg[reg_b]
         # elif op == "SUB": etc
         else:
             raise Exception("Unsupported ALU operation")
