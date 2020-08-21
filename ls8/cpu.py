@@ -13,12 +13,19 @@ class CPU:
         self.reg = [0] * 8
         self.reg[7] = 0xf4  # stack pointer
         self.running = 0
+        self.equal = 0
+        self.less = 0
+        self.greater = 0
         self.branchtable = {}
         self.branchtable[0b10000010] = self.handle_LDI
         self.branchtable[0b01000111] = self.handle_PRN
         self.branchtable[0b00000001] = self.handle_HLT
         self.branchtable[0b10100010] = self.handle_MUL
         self.branchtable[0b10100000] = self.handle_ADD
+        self.branchtable[0b10100111] = self.handle_CMP
+        self.branchtable[0b01010100] = self.handle_JMP
+        self.branchtable[0b01010101] = self.handle_JEQ
+        self.branchtable[0b01010110] = self.handle_JNE
         self.branchtable[0b01000101] = self.handle_PUSH
         self.branchtable[0b01000110] = self.handle_POP
         self.branchtable[0b01010000] = self.handle_CALL
@@ -50,6 +57,27 @@ class CPU:
 
     def handle_ADD(self, op_a, op_b):
         self.alu("ADD", op_a, op_b)
+
+    def handle_CMP(self, op_a, op_b):
+        self.alu("CMP", op_a, op_b)
+
+    def handle_JMP(self, op_a, op_b):
+        jump_addr = self.ram[self.pc + 1]
+        self.pc = self.reg[jump_addr]
+
+    def handle_JEQ(self, op_a, op_b):
+        if self.equal == 1:
+            jump_addr = self.ram[self.pc + 1]
+            self.pc = self.reg[jump_addr]
+        else:
+            self.pc += 2
+
+    def handle_JNE(self, op_a, op_b):
+        if self.equal == 0:
+            jump_addr = self.ram[self.pc + 1]
+            self.pc = self.reg[jump_addr]
+        else:
+            self.pc += 2
 
     def handle_PUSH(self, op_a, op_b):
         self.reg[7] -= 1
@@ -130,6 +158,19 @@ class CPU:
             self.reg[reg_a] += self.reg[reg_b]
         elif op == "MULT":
             self.reg[reg_a] *= self.reg[reg_b]
+        elif op == "CMP":
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.equal = 1
+                self.less = 0
+                self.greater = 0
+            elif self.reg[reg_a] < self.reg[reg_b]:
+                self.equal = 0
+                self.less = 1
+                self.greater = 0
+            else:
+                self.equal = 0
+                self.less = 0
+                self.greater = 1
         # elif op == "SUB": etc
         else:
             raise Exception("Unsupported ALU operation")
@@ -158,11 +199,6 @@ class CPU:
         """Run the CPU."""
         self.running = True
 
-        # LDI = 0b10000010
-        # PRN = 0b01000111
-        # HLT = 0b00000001
-        # MUL = 0b10100010
-
         while self.running:
 
             IR = self.ram_read(self.pc)
@@ -176,19 +212,5 @@ class CPU:
                 print(f"Invalid instruction {IR} at address {self.pc}")
                 sys.exit(1)
 
-            # if IR == LDI:
-            #     self.reg[operand_a] = operand_b
-            # elif IR == PRN:
-            #     print(self.reg[operand_a])
-            # elif IR == MUL:
-            #     self.alu("MULT", operand_a, operand_b)
-            # elif IR == HLT:
-            #     running = False
-            # else:
-            #     print(f"Invalid instruction {IR} at address {self.pc}")
-            #     sys.exit(1)
-
-            if IR & 0b00010000 == 0:  # If the pc was not set by the branchtable fn
+            if IR & 0b00010000 == 0:  # and self.jump == 1:  # If the pc was not set by the branchtable fn
                 self.pc += num_of_args
-
-        print("Ended Loop")
